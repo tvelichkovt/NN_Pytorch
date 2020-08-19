@@ -4,13 +4,15 @@ from torchvision import transforms, datasets
 
 mytuple = ("hello", "world", 1) # create tuple
 mylist = [3+2j, "wikipedia", "is", "cool"] # create list
-mylist = mylist[:3] + ["very"] + mylist[3:] # add element to list
+mylist = mylist[:3] + ["very"] + mylist[3:] ; mylist # add element to list
 
-x = torch.Tensor([5,3])
-y = torch.Tensor([2,1])
+x = torch.Tensor([5,3]) ; x
+y = torch.Tensor([2,1]) ; y
 
 print(x*y)
 
+z1 = torch.zeros([2,5]) ; z1 # 2 tensors, with 5 values in each
+z2 = torch.rand([2,5]) ; z2 # 2 tensors, with 5 random values in each
 
 
 train = datasets.MNIST('', train=True, download=True,
