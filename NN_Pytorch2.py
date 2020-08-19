@@ -66,6 +66,24 @@ print(linr.intercept_, linr.coef_[0])
 # a and b after our gradient descent [1.02354094] [1.96896411]
 # intercept and coef from Scikit-Learn [1.02354075] [1.96896447]
 
-# 3. Tensor ,tensor has three or more dimensions
+# 3. Loading data: turning Numpy arrays into PyTorch tensors
+    # a scalar (a single number) has zero dimensions, 
+    # a vector has one dimension, 
+    # a matrix has two dimensions and 
+    # a tensor has three or more dimensions
 
+import torch
+import torch.optim as optim
+import torch.nn as nn
+from torchviz import make_dot
 
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+# Our data was in Numpy arrays, but we need to transform them into PyTorch's Tensors
+# and then we send them to the chosen device
+x_train_tensor = torch.from_numpy(x_train).float().to(device)
+y_train_tensor = torch.from_numpy(y_train).float().to(device)
+
+# Here we can see the difference - notice that .type() is more useful
+# since it also tells us WHERE the tensor is (device)
+print(type(x_train), type(x_train_tensor), x_train_tensor.type())            
