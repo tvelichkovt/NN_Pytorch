@@ -186,5 +186,251 @@ import torch
 from torch import nn
 from torchviz import make_dot, make_dot_from_trace
 
-make_dot(yhat)
+#make_dot(yhat)
+
+# 7. Optimizer, performs the updates through its step() method
+
+torch.manual_seed(42)
+a = torch.randn(1, requires_grad=True, dtype=torch.float, device=device)
+b = torch.randn(1, requires_grad=True, dtype=torch.float, device=device)
+print(a, b)
+
+lr = 1e-1
+n_epochs = 1000
+
+# Defines a SGD optimizer to update the parameters
+optimizer = optim.SGD([a, b], lr=lr)
+
+for epoch in range(n_epochs):
+    yhat = a + b * x_train_tensor
+    error = y_train_tensor - yhat
+    loss = (error ** 2).mean()
+
+    loss.backward()    
+    
+    # No more manual update!
+    # with torch.no_grad():
+    #     a -= lr * a.grad
+    #     b -= lr * b.grad
+    optimizer.step()
+    
+    # No more telling PyTorch to let gradients go!
+    # a.grad.zero_()
+    # b.grad.zero_()
+    optimizer.zero_grad()
+    
+print(a, b) #tensor([1.0235], device='cuda:0', requires_grad=True) tensor([1.9690], device='cuda:0', requires_grad=True)
+
+# 8. PyTorch’s loss in action — no more manual loss computation!
+
+torch.manual_seed(42)
+a = torch.randn(1, requires_grad=True, dtype=torch.float, device=device)
+b = torch.randn(1, requires_grad=True, dtype=torch.float, device=device)
+print(a, b)
+
+lr = 1e-1
+n_epochs = 1000
+
+# Defines a MSE loss function
+loss_fn = nn.MSELoss(reduction='mean')
+
+optimizer = optim.SGD([a, b], lr=lr)
+
+for epoch in range(n_epochs):
+    yhat = a + b * x_train_tensor
+    
+    # No more manual loss!
+    # error = y_tensor - yhat
+    # loss = (error ** 2).mean()
+    loss = loss_fn(y_train_tensor, yhat)
+
+    loss.backward()    
+    optimizer.step()
+    optimizer.zero_grad()
+    
+print(a, b)
+
+# 9. Building our “Manual” model, creating parameter by parameter!
+
+
+class ManualLinearRegression(nn.Module):
+    def __init__(self):
+        super().__init__()
+        # To make "a" and "b" real parameters of the model, we need to wrap them with nn.Parameter
+        self.a = nn.Parameter(torch.randn(1, requires_grad=True, dtype=torch.float))
+        self.b = nn.Parameter(torch.randn(1, requires_grad=True, dtype=torch.float))
+        
+    def forward(self, x):
+        # Computes the outputs / predictions
+        return self.a + self.b * x
+
+# 10. PyTorch’s model in action — no more manual prediction/forward step!
+
+torch.manual_seed(42)
+
+# Now we can create a model and send it at once to the device
+model = ManualLinearRegression().to(device)
+# We can also inspect its parameters using its state_dict
+print(model.state_dict())
+
+lr = 1e-1
+n_epochs = 1000
+
+loss_fn = nn.MSELoss(reduction='mean')
+optimizer = optim.SGD(model.parameters(), lr=lr)
+
+for epoch in range(n_epochs):
+    # What is this?!?
+    model.train()
+
+    # No more manual prediction!
+    # yhat = a + b * x_tensor
+    yhat = model(x_train_tensor)
+    
+    loss = loss_fn(y_train_tensor, yhat)
+    loss.backward()    
+    optimizer.step()
+    optimizer.zero_grad()
+    
+print(model.state_dict())
+
+
+# 11. Building a model using PyTorch’s Linear layer
+
+class LayerLinearRegression(nn.Module):
+    def __init__(self):
+        super().__init__()
+        # Instead of our custom parameters, we use a Linear layer with single input and single output
+        self.linear = nn.Linear(1, 1)
+                
+    def forward(self, x):
+        # Now it only takes a call to the layer to make predictions
+        return self.linear(x)
+
+# 12. Building a function to perform one step of training!
+        
+def make_train_step(model, loss_fn, optimizer):
+    # Builds function that performs a step in the train loop
+    def train_step(x, y):
+        # Sets model to TRAIN mode
+        model.train()
+        # Makes predictions
+        yhat = model(x)
+        # Computes loss
+        loss = loss_fn(y, yhat)
+        # Computes gradients
+        loss.backward()
+        # Updates parameters and zeroes gradients
+        optimizer.step()
+        optimizer.zero_grad()
+        # Returns the loss
+        return loss.item()
+    
+    # Returns the function that will be called inside the train loop
+    return train_step
+
+# Creates the train_step function for our model, loss function and optimizer
+train_step = make_train_step(model, loss_fn, optimizer)
+losses = []
+
+# For each epoch...
+for epoch in range(n_epochs):
+    # Performs one train step and returns the corresponding loss
+    loss = train_step(x_train_tensor, y_train_tensor)
+    losses.append(loss)
+    
+# Checks model's parameters
+print(model.state_dict())
+
+# 13. Creating datasets using train tensors
+
+from torch.utils.data import Dataset, TensorDataset
+
+class CustomDataset(Dataset):
+    def __init__(self, x_tensor, y_tensor):
+        self.x = x_tensor
+        self.y = y_tensor
+        
+    def __getitem__(self, index):
+        return (self.x[index], self.y[index])
+
+    def __len__(self):
+        return len(self.x)
+
+# Wait, is this a CPU tensor now? Why? Where is .to(device)?
+x_train_tensor = torch.from_numpy(x_train).float()
+y_train_tensor = torch.from_numpy(y_train).float()
+
+train_data = CustomDataset(x_train_tensor, y_train_tensor)
+print(train_data[0])
+
+train_data = TensorDataset(x_train_tensor, y_train_tensor)
+print(train_data[0])
+
+# 14. Building a data loader for our training data
+
+from torch.utils.data import DataLoader
+
+train_loader = DataLoader(dataset=train_data, batch_size=16, shuffle=True)
+
+# 15. Using mini-batch gradient descent!
+
+losses = []
+train_step = make_train_step(model, loss_fn, optimizer)
+
+for epoch in range(n_epochs):
+    for x_batch, y_batch in train_loader:
+        # the dataset "lives" in the CPU, so do our mini-batches
+        # therefore, we need to send those mini-batches to the
+        # device where the model "lives"
+        x_batch = x_batch.to(device)
+        y_batch = y_batch.to(device)
+        
+        loss = train_step(x_batch, y_batch)
+        losses.append(loss)
+        
+print(model.state_dict())
+
+# 16. Splitting the dataset into training and validation sets, the PyTorch way!
+
+
+from torch.utils.data.dataset import random_split
+
+x_tensor = torch.from_numpy(x).float()
+y_tensor = torch.from_numpy(y).float()
+
+dataset = TensorDataset(x_tensor, y_tensor)
+
+train_dataset, val_dataset = random_split(dataset, [80, 20])
+
+train_loader = DataLoader(dataset=train_dataset, batch_size=16)
+val_loader = DataLoader(dataset=val_dataset, batch_size=20)
+
+# 17. Computing validation loss
+
+losses = []
+val_losses = []
+train_step = make_train_step(model, loss_fn, optimizer)
+
+for epoch in range(n_epochs):
+    for x_batch, y_batch in train_loader:
+        x_batch = x_batch.to(device)
+        y_batch = y_batch.to(device)
+
+        loss = train_step(x_batch, y_batch)
+        losses.append(loss)
+        
+    with torch.no_grad():
+        for x_val, y_val in val_loader:
+            x_val = x_val.to(device)
+            y_val = y_val.to(device)
+            
+            model.eval()
+
+            yhat = model(x_val)
+            val_loss = loss_fn(y_val, yhat)
+            val_losses.append(val_loss.item())
+
+print(model.state_dict()) #OrderedDict([('a', tensor([1.0340], device='cuda:0')), ('b', tensor([1.9253], device='cuda:0'))])
+
 
