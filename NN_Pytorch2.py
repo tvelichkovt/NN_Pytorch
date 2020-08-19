@@ -1,43 +1,71 @@
-import torch
-import torchvision
-from torchvision import transforms, datasets
+import numpy as np
 
-mytuple = ("hello", "world", 1) # create tuple
-mylist = [3+2j, "wikipedia", "is", "cool"] # create list
-mylist = mylist[:3] + ["very"] + mylist[3:] ; mylist # add element to list
-
-x = torch.Tensor([5,3]) ; x
-y = torch.Tensor([2,1]) ; y
-
-print(x*y)
-
-z1 = torch.zeros([2,5]) ; z1 # 2 tensors, with 5 values in each
-z2 = torch.rand([2,5]) ; z2 # 2 tensors, with 5 random values in each
+# 1. Generating synthetic train and validation sets for a linear regression
 
 
-train = datasets.MNIST('', train=True, download=True,
-                       transform=transforms.Compose([
-                           transforms.ToTensor()
-                       ]))
+# Data Generation
+np.random.seed(42)
+x = np.random.rand(100, 1)
+y = 1 + 2 * x + .1 * np.random.randn(100, 1)
 
-test = datasets.MNIST('', train=False, download=True,
-                       transform=transforms.Compose([
-                           transforms.ToTensor()
-                       ]))
+# Shuffles the indices
+idx = np.arange(100)
+np.random.shuffle(idx)
 
-trainset = torch.utils.data.DataLoader(train, batch_size=10, shuffle=True)
-testset = torch.utils.data.DataLoader(test, batch_size=10, shuffle=False)
+# Uses first 80 random indices for train
+train_idx = idx[:80]
+# Uses the remaining indices for validation
+val_idx = idx[80:]
 
-for data in trainset:
-    print(data)
-    break
+# Generates train and validation sets
+x_train, y_train = x[train_idx], y[train_idx]
+x_val, y_val = x[val_idx], y[val_idx]
 
-X, y = data[0][0], data[1][0]
+# 2. Implementing gradient descent for linear regression using Numpy
 
-print(data[1])
+# Compute the Loss, the loss is given by the Mean Square Error (MSE), that is, the average of all squared differences between labels (y) and predictions (a + bx)
+
+# Initializes parameters "a" and "b" randomly
+np.random.seed(42)
+a = np.random.randn(1)
+b = np.random.randn(1)
+
+print(a, b)
+
+# Sets learning rate
+lr = 1e-1
+# Defines number of epochs
+n_epochs = 1000
+
+for epoch in range(n_epochs):
+    # Computes our model's predicted output
+    yhat = a + b * x_train
+    
+    # How wrong is our model? That's the error! 
+    error = (y_train - yhat)
+    # It is a regression, so it computes mean squared error (MSE)
+    loss = (error ** 2).mean()
+    
+    # Computes gradients for both "a" and "b" parameters
+    a_grad = -2 * error.mean()
+    b_grad = -2 * (x_train * error).mean()
+    
+    # Updates parameters using gradients and the learning rate
+    a = a - lr * a_grad
+    b = b - lr * b_grad
+    
+print(a, b)
+
+# Sanity Check: do we get the same results as our gradient descent?
+from sklearn.linear_model import LinearRegression
+linr = LinearRegression()
+linr.fit(x_train, y_train)
+print(linr.intercept_, linr.coef_[0])
+
+# a and b after initialization [0.49671415] [-0.1382643]
+# a and b after our gradient descent [1.02354094] [1.96896411]
+# intercept and coef from Scikit-Learn [1.02354075] [1.96896447]
+
+# 3. Tensor ,tensor has three or more dimensions
 
 
-import matplotlib.pyplot as plt  # pip install matplotlib
-
-plt.imshow(data[0][0].view(28,28))
-plt.show()
